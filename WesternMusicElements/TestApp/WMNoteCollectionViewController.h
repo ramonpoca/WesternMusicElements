@@ -19,6 +19,7 @@
 
 @property (weak, nonatomic) IBOutlet UITableView *tableView;
 @property (weak, nonatomic) IBOutlet UIPickerView *noteCollectionPicker;
+@property (strong, nonatomic) IBOutlet UITextField *sequenceTextField;
 
 - (id)initForCollectionType:(WMNoteCollectionType)collectionType;
 

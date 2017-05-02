@@ -8,15 +8,17 @@
 
 #import "WMNoteCollectionViewController.h"
 #import "WMCustomCell.h"
+#import "PGMidi.h"
+#import "WMProgression.h"
 
-@interface WMNoteCollectionViewController ()
+@interface WMNoteCollectionViewController () <PGMidiDelegate, UITextFieldDelegate>
 
 @property (strong, nonatomic) WMScale *scale;
 @property (strong, nonatomic) WMChord *chord;
 @property (strong, nonatomic) NSArray *allModeKeys;
 @property (strong, nonatomic) NSArray *allTypeKeys;
 @property (assign, nonatomic) WMNoteCollectionType noteCollectionType;
-
+@property(strong,nonatomic) PGMidi *midi;
 @end
 
 @implementation WMNoteCollectionViewController
@@ -61,6 +63,11 @@
     [[self noteCollectionPicker] becomeFirstResponder];
     self.view.backgroundColor = [UIColor whiteColor];
     self.navigationController.navigationBar.tintColor = [UIColor blackColor];
+    self.edgesForExtendedLayout = UIRectEdgeNone;
+    self.midi = [[PGMidi alloc] init];
+    self.midi.networkEnabled = YES;
+    self.midi.delegate = self;
+    self.sequenceTextField.delegate = self;
 }
 
 - (void)viewWillAppear:(BOOL)animated {
@@ -102,6 +109,25 @@
     [[self tableView] reloadData];
 }
 
+#pragma mark - PGMidi delegates
+- (void) midi:(PGMidi*)midi sourceAdded:(PGMidiSource *)source {
+    
+}
+- (void) midi:(PGMidi*)midi sourceRemoved:(PGMidiSource *)source {
+    
+}
+- (void) midi:(PGMidi*)midi destinationAdded:(PGMidiDestination *)destination {
+    NSLog(@"%@", destination);
+    
+}
+- (void) midi:(PGMidi*)midi destinationRemoved:(PGMidiDestination *)destination {
+    NSLog(@"-- %@", destination);
+    
+}
+- (BOOL)textFieldShouldReturn:(UITextField *)textField {
+    [textField resignFirstResponder];
+    return NO;
+}
 #pragma mark - UITableViewControllerDelegate methods -
 
 - (int)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
@@ -168,7 +194,48 @@
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     UITableViewCell *selectedCell = [[self tableView] cellForRowAtIndexPath:indexPath];
-    if (selectedCell) { // Whatever
+    if ([indexPath row] == 2) {
+        if ([self noteCollectionType] == WMCollectionTypeScale)
+            [self play:self.scale.notes];
+        else
+            [self playChord:self.chord.notes];
+    }
+    if (indexPath.row == 1) {
+        WMScale *scale = [[WMPool pool] scaleWithRootNote:self.chord.rootNote scaleMode:WMScaleModeMajor];
+        WMProgression *prog = [[WMProgression alloc] initWithProgression:self.sequenceTextField.text scale:scale];
+        NSArray *chords = [prog chordsWithRoot:self.chord.rootNote];
+        for (WMChord  *chord in chords) {
+            [self playChord:chord.notes];
+            [NSThread sleepForTimeInterval:0.3];
+        }
+    }
+}
+
+- (void) play: (NSArray *) notes {
+    for (WMNote *noteObj in notes) {
+        const UInt8 note      = noteObj.midiNoteNumber;
+        const UInt8 noteOn[]  = { 0x90, note, 127 };
+        const UInt8 noteOff[] = { 0x80, note, 0   };
+        [self.midi sendBytes:noteOn size:sizeof(noteOn)];
+        [NSThread sleepForTimeInterval:0.3];
+        [self.midi sendBytes:noteOff size:sizeof(noteOff)];
+    }
+}
+
+- (void) playChord: (NSArray *) notes {
+    for (WMNote *noteObj in notes) {
+        const UInt8 note      = noteObj.midiNoteNumber;
+        const UInt8 noteOn[]  = { 0x90, note, 127 };
+        const UInt8 noteOff[] = { 0x80, note, 0   };
+        [self.midi sendBytes:noteOn size:sizeof(noteOn)];
+    }
+        [NSThread sleepForTimeInterval:0.3];
+    for (WMNote *noteObj in notes) {
+            const UInt8 note      = noteObj.midiNoteNumber;
+            const UInt8 noteOn[]  = { 0x90, note, 127 };
+            const UInt8 noteOff[] = { 0x80, note, 0   };
+
+        [self.midi sendBytes:noteOff size:sizeof(noteOff)];
     }
 }
 
